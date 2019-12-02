@@ -1,0 +1,110 @@
+---
+title: "Example"
+author: "Kieran healy"
+date: "12/02/2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+library(showtext)
+showtext_auto()
+
+library(myriad)
+import_myriad_semi()
+
+theme_set(theme_myriad_semi())
+
+```
+
+```{r}
+
+labels <- tibble(Group = c("e_european", "european_nec", 
+                          "n_american", "mena", "other_white"),
+                 label = c("E. Europe", "Euro NEC", "N. Amer.", "MENA", "Other"))
+
+model3 <- clean_names(read_csv("data/model3.csv")) %>%
+  pivot_longer(e_european:other_white, 
+               names_to = "Group", 
+               values_to = "Estimate") %>%
+  left_join(labels)
+
+p_out <- ggplot(model3, mapping = aes(y = Estimate, 
+                             x = reorder(disability, Estimate), 
+                             shape = label)) + 
+  geom_hline(yintercept = 1, color = "gray70") + 
+  geom_point(size = 3, position = position_dodge(width = 0.2)) + 
+  coord_flip() + 
+  labs(x = NULL, y = "Odds Ratio", shape = NULL) + 
+  theme(legend.position = "top")
+
+ggsave("figures/model3.pdf", plot = p_out, height = 3, width = 6)
+```
+
+```{r}
+
+model_table <- read_csv("data/tables_sem.csv") %>%
+  fill(outcome) %>%
+  separate(model_1, into = c("m1_b", "m1_se"), sep = "xx") %>%
+  separate(model_2, into = c("m2_b", "m2_se"), sep = "xx") %>%
+  separate(model_3, into = c("m3_b", "m3_se"), sep = "xx") %>%
+  select(outcome, variable, m1_b, m2_b, m3_b, everything()) %>%
+  pivot_longer(m1_b:m3_b, names_to = "model_b", values_to = "beta") %>%
+  pivot_longer(m1_se:m3_se, names_to = "model_se", values_to = "se") %>%
+  mutate(beta = as.numeric(beta), 
+         se = as.numeric(se)) 
+  
+
+m_labs <- c(`m1_b` = "Unconditional\nModel",
+            `m3_b` = "Including\nCovariates")
+
+global_labeller <- labeller(
+  model_b = m_labs
+)
+
+
+p_out <- model_table %>%
+  filter(variable %in% c("NH black", "Hispanic", "NH Asian"),  
+         model_b %in% c("m1_b", "m3_b")) %>%
+  drop_na(beta) %>%
+  ggplot(mapping = aes(x = beta, 
+                       y = reorder(variable, beta))) + 
+  geom_vline(xintercept = 0, color = "gray70") + 
+  geom_point() + 
+  labs(x = "Estimate", y = NULL) + 
+  facet_grid(model_b ~ outcome, 
+             scales = "free_y", space = "free_y",
+             labeller = global_labeller)
+  
+
+ggsave("figures/model_table_points.pdf", plot = p_out, height = 3.5, width = 10)
+
+
+p_out <- model_table %>%
+  filter(variable %in% c("NH black", "Hispanic", "NH Asian"),  
+         model_b %in% c("m1_b", "m3_b")) %>%
+  drop_na(beta) %>%
+  ggplot(mapping = aes(y = beta, 
+                       x = reorder(variable, beta))) + 
+  geom_hline(yintercept = 0, color = "gray75", size = 1.1) + 
+  geom_col(fill = "gray15") + 
+  labs(y = "Estimated Difference from Non-Hispanic Whites", x = NULL) + 
+  coord_flip() +
+  facet_grid(model_b ~ outcome, 
+             scales = "free_y", space = "free_y",
+             labeller = global_labeller) + 
+  theme(strip.text.x = element_text(hjust = 0.5),
+        strip.text.y = element_text(size = rel(0.7), hjust = 0.5))
+  
+
+ggsave("figures/model_table_cols.pdf", plot = p_out, height = 2.5, width = 10)
+
+```
+
