@@ -12,15 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
-library(lubridate)
 library(janitor)
-library(showtext)
-showtext_auto()
 
-library(myriad)
-import_myriad_semi()
-
-theme_set(theme_myriad_semi())
+theme_set(theme_bw())
 
 ```
 
